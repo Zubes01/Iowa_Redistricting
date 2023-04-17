@@ -9,3 +9,6 @@
 
 #ignores json files
 *.json
+
+#ignore the ELECTION_2020 directory
+ELECTION_2020
