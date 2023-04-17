@@ -1,0 +1,11 @@
+# ignores csv files
+*.csv
+
+#ignores geojson files
+*.geojson
+
+#ignores txt files
+*.txt
+
+#ignores json files
+*.json
