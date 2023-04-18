@@ -11,12 +11,12 @@ import sys
 
 
 def build_graph(filename='IA-19-iowa-counties.json'):
-    '''
+    """
     Builds a graph from a GeoJSON file. The GeoJSON file is a collection of polygons, each representing a county in Iowa.
     The graph returned will be a collection of nodes, each representing a county in Iowa and containing all of their attributes (geometric, demographic, etc.)
 
     Geographic JSON file provided by https://github.com/deldersveld/topojson/blob/master/countries/us-states/IA-19-iowa-counties.json
-    '''
+    """
     # Load the GeoJSON file
     gdf = gpd.read_file(filename)
 
@@ -41,19 +41,23 @@ def build_graph(filename='IA-19-iowa-counties.json'):
                     G.nodes[idx_to_county[idx1]][idx_to_county[idx2]] = shared_boundary.length #adds the length of the boundary between the two counties as an attribute
                     G.nodes[idx_to_county[idx2]][idx_to_county[idx1]] = shared_boundary.length #adds the length of the boundary between the two counties as an attribute
     
-    '''CSV population file provided by https://www.census.gov/data/tables/time-series/demo/popest/2020s-counties-total.html'''
+    """
+    CSV population file provided by https://www.census.gov/data/tables/time-series/demo/popest/2020s-counties-total.html
+    """
     add_population_to_nodes(G, 'iowa_population.csv')
 
-    '''2020 presidential election results file provided by https://www.kaggle.com/datasets/unanimad/us-election-2020?resource=download'''
-    '''Presidential election results are the only results provided by county, so they are the only ones we will use here'''
+    """
+    2020 presidential election results file provided by https://www.kaggle.com/datasets/unanimad/us-election-2020?resource=download
+    Presidential election results are the only results provided by county, so they are the only ones we will use here
+    """
     add_presidential_election_results_to_nodes(G, 'ELECTION_2020/president_county_candidate.csv')
 
     return G
 
 def draw_graph(G, names=True):
-    '''
+    """
     Draws a simple graph with the counties of Iowa as nodes and the shared boundaries between counties as edges.
-    '''
+    """
 
     # Draw the graph
     pos = nx.get_node_attributes(G, 'pos')
@@ -64,9 +68,9 @@ def draw_graph(G, names=True):
     plt.show()
 
 def add_population_to_nodes(G, filename):
-    '''
+    """
     Iterates through a CSV file containing population data for each county in Iowa and adds the population to each node in the graph.
-    '''
+    """
     # Open the CSV file
     with open(filename, 'r') as f:
         reader = csv.reader(f)
@@ -77,11 +81,11 @@ def add_population_to_nodes(G, filename):
             G.nodes[row[0]]['population'] = int(row[1].replace(',', ''))
 
 def add_presidential_election_results_to_nodes(G, filename):
-    '''
+    """
     Adds the 2020 presidential election results to each node in the graph.
 
     Unfortunately presidential election results are the only 2020 results provided by county, so they are the only ones we will use.
-    '''
+    """
     # Open the CSV file
     with open(filename, 'r') as f:
         reader = csv.reader(f)
@@ -106,9 +110,9 @@ def add_presidential_election_results_to_nodes(G, filename):
                         G.nodes[county_name]['OTHER_VOTES'] += int(row[4].replace(',', ''))
 
 def print_fun_statistics(G):
-    '''
+    """
     Prints a large number of fun statistics about different nodes in the graph.
-    '''
+    """
     #which county has the largest share of third party / independent vote?
     largest_fraction = 0
     for node in G.nodes:
@@ -150,10 +154,11 @@ def print_fun_statistics(G):
     print('Lowest turnout: ' + str(smallest_node) + ' with ' + str(smallest_fraction))
 
 def randomized_edge_contraction(G_to_edit):
-    '''
+    """
     inspired by the Karger Stein algorithm, this function will contract a random edge in the graph until there are only four nodes left. 
     This divides the graph into 4 random parts, which are each assigned a district number
-    '''
+    TODO: add a num_districts parameter to allow for more or fewer than 4 districts
+    """
     G = G_to_edit.copy()
     nodes_absorbed = {}
     while G.nodes.__len__() > 4:
@@ -195,8 +200,11 @@ def randomized_edge_contraction(G_to_edit):
 
     return G_to_edit
 
-# this function chooses 4 random nodes and grows them until the entire graph is divided into 4 parts. Each of those four parts are assigned a district number
 def randomized_node_growth(G_to_edit, num_districts=4):
+    """
+    This function chooses num_districts random nodes and grows them until the entire graph is divided into num_districts parts. 
+    Each of those parts are assigned a district number.
+    """
     G = G_to_edit.copy()
     nodes_absorbed = {}
     first_nodes = []
@@ -231,6 +239,10 @@ def randomized_node_growth(G_to_edit, num_districts=4):
     return G_to_edit
 
 def color_county_map(G, colors=['white', 'red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink']):
+    """
+    This function takes a graph with assigned districts and displays a map of Iowa with the districts colored in.
+    """
+
     # Load the shapefile of Iowa counties
     counties = gpd.read_file('IA-19-iowa-counties.json')
 
@@ -248,7 +260,12 @@ def color_county_map(G, colors=['white', 'red', 'blue', 'green', 'yellow', 'oran
     plt.axis('off')
     plt.show()
 
-def animated_random_districts(G, colors=['white', 'red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink']):
+def animated_random_districts(G, frames=100, colors=['white', 'red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink']):
+    """
+    This function is used to visualize the randomized_node_growth function.
+    In each frame, the districts are randomly generated again, and the map is updated to show the new districts.
+    """
+
     # Load the shapefile of Iowa counties
     counties = gpd.read_file('IA-19-iowa-counties.json')
 
@@ -283,12 +300,16 @@ def animated_random_districts(G, colors=['white', 'red', 'blue', 'green', 'yello
     fig, ax = plt.subplots(figsize=(10, 10))
 
     # Create the animation
-    ani = FuncAnimation(fig, update, frames=100, interval=100, repeat=True)
+    ani = FuncAnimation(fig, update, frames=frames, interval=100, repeat=True)
 
     plt.axis('off')
     plt.show()
 
 def population_of_district(G, district_num):
+    """
+    This function takes in a graph with assigned districts and returns the population of the district with the given district number.
+    For this function to work, the graph must have a 'population' attribute for each node filled in, which can be done by running the add_population_to_nodes function.
+    """
     population = 0
     for node in G.nodes:
         if G.nodes[node]['district'] == district_num:
@@ -296,6 +317,11 @@ def population_of_district(G, district_num):
     return population
 
 def is_population_difference_within_threshold(G, threshold):
+    """
+    This function takes in a graph with assigned districts and returns True if the population difference between the largest and smallest districts is less than or equal to the threshold, and False otherwise.
+    Such a function can be used to force search algorithms to only consider states where the population difference between the largest and smallest districts is less than or equal to the threshold.
+    """
+
     populations = {}
 
     for node in G.nodes:
@@ -313,8 +339,11 @@ def is_population_difference_within_threshold(G, threshold):
     else:
         return False
 
-# takes in a graph with assigned districts and returns a list of all the possible successor states
 def successor_states(G):
+    """
+    This function takes in a graph with assigned districts and returns a list of all the possible successor states.
+    TODO: add a num_districts parameter so that this function can be used for any number of districts.
+    """
     G = G.copy()
     successors = []
     for node in G.nodes:
@@ -389,8 +418,13 @@ def successor_states(G):
                         
     return successors
 
-# will also return false if graph is not connected
 def district_is_contiguous(G, district_num):
+    """
+    This function takes in a graph and a district number and returns True if the district is contiguous and False otherwise.
+
+    Note that this function will return False if the graph is not connected.
+    """
+
     visited = {}
     queue = []
     start_node = random.choice(list(G.nodes))
@@ -428,6 +462,11 @@ def district_is_contiguous(G, district_num):
     return True
 
 def animate_successor_states(G, colors=['white', 'red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink']):
+    """
+    This function takes in a graph and a list of colors and showcases the graph's successor states using an animation.
+    This can be used to visualize the correctness of the successor_states function.
+    """
+
     # Load the shapefile of Iowa counties
     counties = gpd.read_file('IA-19-iowa-counties.json')
 
@@ -471,6 +510,9 @@ def animate_successor_states(G, colors=['white', 'red', 'blue', 'green', 'yellow
     plt.show()
 
 def max_population_difference(G):
+    """
+    This function takes in a graph and returns the difference between the largest and smallest district populations.
+    """
     populations = {}
 
     for node in G.nodes:
@@ -484,8 +526,20 @@ def max_population_difference(G):
     smallest_population = min(populations.values())
     return largest_population - smallest_population
 
-# performs standard hill climbing search, finding a minimal value for the function_to_optimize. If minimize is False, then finds a maximal value. Does not consider states in already_visited
 def hill_climbing_search(start_graph, max_steps=100, funciton_to_optimize=max_population_difference, minimize=True, return_steps_taken=False, already_visited={}, districts=4):
+    """
+    Performs standard hill climbing search, finding a minimal value for the function_to_optimize. 
+    If minimize is False, then finds a maximal value. Does not consider states in already_visited
+
+    start_graph: the graph to start the search from
+    max_steps: the maximum number of steps to take
+    funciton_to_optimize: the function to optimize
+    minimize: whether to minimize or maximize the function
+    return_steps_taken: whether to return the steps taken (these can be used to animate the search later)
+    already_visited: a dictionary of states that have already been visited (this is used to avoid duplicate states)
+    districts: the number of districts to use
+    """
+
     G = start_graph.copy()
     randomized_node_growth(G, districts)
     steps_taken = [G]
@@ -527,6 +581,18 @@ def hill_climbing_search(start_graph, max_steps=100, funciton_to_optimize=max_po
     return G
 
 def random_restart_hill_climbing(start_graph, num_restarts=100, max_steps_per_climb=1000, function_to_optimize=max_population_difference, minimize=True, return_steps_taken=False, districts=4):
+    """
+    Performs random restart hill climbing search, finding a minimal value for the function_to_optimize.
+    If minimize is False, then finds a maximal value.
+
+    start_graph: the graph to start the search from
+    num_restarts: the number of times to restart the search
+    max_steps_per_climb: the maximum number of steps to take in each hill climbing search
+    funciton_to_optimize: the function to optimize
+    minimize: whether to minimize or maximize the function
+    return_steps_taken: whether to return the steps taken (these can be used to animate the search later)
+    districts: the number of districts to use
+    """
     if minimize:
         best_score = math.inf
     else:
@@ -558,6 +624,11 @@ def random_restart_hill_climbing(start_graph, num_restarts=100, max_steps_per_cl
     return best_graph
 
 def max_num_counties_differences(G):
+    """
+    Finds the district with the most counties and the one with the least counties, and returns the difference between them.
+
+    This can be used to optimize for equality of contained political subdivisions (i.e. counties).
+    """
     differences = {}
     for node in G.nodes:
         if differences.get(G.nodes[node]['district']) == None:
@@ -566,6 +637,9 @@ def max_num_counties_differences(G):
     return max(differences.values()) - min(differences.values())
 
 def animate_from_steps(steps, colors=['white', 'red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink']):
+    """
+    Creates an animation from a list of steps, displaying the map with the districts colored in the given colors
+    """
     # Load the shapefile of Iowa counties
     counties = gpd.read_file('IA-19-iowa-counties.json')
 
@@ -594,8 +668,13 @@ def animate_from_steps(steps, colors=['white', 'red', 'blue', 'green', 'yellow',
     plt.axis('off')
     plt.show()
 
-#computes the average distance between each county and the center of its district
-def worst_compactness(G):
+def average_distance_to_district_center(G):
+    """
+    Computes the average distance between each county and the center of its district.
+
+    This function can be used to optimize for compactness of districts.
+    """
+
     #get positional data for each county in each district
     positions = {}
     centers = {}
@@ -616,8 +695,13 @@ def worst_compactness(G):
 
     return max(avg_distances.values())
 
-#computes the largest perimeter of a district
 def largest_perimeter(G):
+    """
+    Computes the largest perimeter of a district.
+
+    This function can be used to optimize for compactness of districts.
+    """
+
     perimeters = {}
     for node in G.nodes:
         for neighbor in list(G.neighbors(node)):
@@ -628,6 +712,12 @@ def largest_perimeter(G):
     return max(perimeters.values())
 
 def largest_difference_in_area(G):
+    """
+    Computes the largest difference in area between any two districts.
+
+    This function can be used to optimize for equality of land-area.
+    """
+
     areas = {}
     for node in G.nodes:
         if G.nodes[node]['district'] not in areas:
@@ -636,6 +726,11 @@ def largest_difference_in_area(G):
     return max(areas.values()) - min(areas.values())
 
 def total_number_lean_democratic_districts(G):
+    """
+    Computes the total number of districts that lean democratic.
+    (i.e. the number of districts where democrats make up at least 55% of the vote)
+    """
+
     # get the voting data for each district
     democrat_votes = {}
     republican_votes = {}
@@ -682,6 +777,11 @@ def total_number_lean_democratic_districts(G):
         return 1 / max_population_difference(G)
 
 def gerrymander_for_democrats(G):
+    """
+    A WIP function to gerrymander for democrats.
+    TODO: improve this function
+    """
+
     # get the voting data for each district
     total_democrat_votes = 0
     total_republican_votes = 0
@@ -760,6 +860,10 @@ def gerrymander_for_democrats(G):
     '''
 
 def print_district_partisan_leans(G, colors=['white', 'red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink']):
+    """
+    Prints the partisan leans of each district.
+    """
+
     # get the voting data for each district
     democrat_votes = {}
     republican_votes = {}
@@ -797,6 +901,12 @@ def print_district_partisan_leans(G, colors=['white', 'red', 'blue', 'green', 'y
             print('Third party share: ' + str(third_party_share * 100) + '%')
 
 def color_county_map_with_partisan_leans(G, democrat_color='blue', republican_color='red', third_party_color='yellow'):
+    """
+    Colors and displays the county map with the partisan leans of each district.
+
+    TODO: add thickened lines to show district boundaries. Currently, bordering districts with similar partisan leans are indistinguishable.
+    """
+
     # get the partisan leans for each district
     dem_share, rep_share, third_party_share = get_partisan_leans(G)
 
@@ -836,10 +946,16 @@ def color_county_map_with_partisan_leans(G, democrat_color='blue', republican_co
     plt.axis('off')
     plt.show()
 
-# generates a random districting of the graph G with num_districts districts, by assigning each node a random district and checking for contiguousness. 
-# Although this guarantees uniformity-of-randomness, it is completely impractical. 
-# This method could be left running for days and still not find contiguous districts.
 def truly_random_districting(G_to_edit, num_districts=4):    
+    """
+    Generates a random districting of the graph G with num_districts districts, by assigning each node a random district and checking for contiguousness.
+    Although this guarantees uniformity-of-randomness, it is completely impractical. 
+    This method could be left running for days and still not find contiguous districts.
+
+    It is for this reason that other non-uniform methods for generating random districtings are used.
+    The issue of generating uniform random districtings efficiently is still an open problem, from what I understand.
+    """
+
     # generate a random map
     for node in G_to_edit.nodes:
             G_to_edit.nodes[node]['district'] = random.randint(1, num_districts)
@@ -876,9 +992,11 @@ def truly_random_districting(G_to_edit, num_districts=4):
                 break
         maps_checked += 1
             
-
-#returns a 3 dictionarys (democrat, republican, and third_party) where the keys are the districts and the values are the vote share of the party in that district
 def get_partisan_leans(G):
+    """
+    Returns 3 dictionaries (democrat, republican, and third_party) where the keys are the districts and the values are the vote share of the party in that district
+    """
+
     democrat_votes = {}
     republican_votes = {}
     third_party_votes = {}
@@ -908,7 +1026,7 @@ def get_partisan_leans(G):
 if __name__ == '__main__':
     G = build_graph()
 
-    truly_random_districting(G, num_districts=4)
+    randomized_node_growth(G, num_districts=4)
     #G, steps_taken = random_restart_hill_climbing(G, return_steps_taken=True, num_restarts=10, function_to_optimize=max_population_difference, minimize=True, districts=4)
     print('Largest population difference for final map: ' + str(max_population_difference(G)))
     print('Largest perimeter for final map: ' + str(largest_perimeter(G)))
@@ -916,13 +1034,20 @@ if __name__ == '__main__':
     #animate_from_steps(steps_taken)
     color_county_map_with_partisan_leans(G)
 
-# TODO: completely random algorithm, then check contiguousness, for random contiguous maps
-# TODO: clustering algorithm for random contiguous maps
 
-# TODO: color_county_map but with partisan leans
+"""
+A note on graph hashing:
+    Even when using non-uniform random districting methods like randomized_node_growth, 
+    the chance of a graph being generated twice is astronomically small.
+    I have not yet found a graph that has been generated twice, even after running many of these algorithms for hours.
+    It is for this reason that only a couple methods in the entire project support the use of checking if graphs were generated previously, 
+    and only so for demonstrational purposes.
+"""
+
+
+# TODO: clustering algorithm for random contiguous maps OR a different, more uniform random algorithm
 
 # TODO: improve heuristics for gerrymandering
-# TODO: improve graph hashing
 # TODO: visualize state space
 # TODO: optimize performance, memory usage. Determine the bottleneck.
 
@@ -931,9 +1056,9 @@ if __name__ == '__main__':
 # TODO: implement simulated annealing
 # TODO: implement local beam search
 # TODO: implement tabu search
-# TODO: implement particle swarm optimization
-# TODO: implement ant colony optimization
-# TODO: implement genetic algorithm
-# TODO: implement memetic algorithm???
-# TODO: implement differential evolution
 # TODO: implement a monte-carlo-like algorithm for finding the best map
+# TODO: implement particle swarm optimization?
+# TODO: implement ant colony optimization?
+# TODO: implement genetic algorithm?
+# TODO: implement memetic algorithm???
+# TODO: implement differential evolution???
