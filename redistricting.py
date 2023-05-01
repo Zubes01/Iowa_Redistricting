@@ -10,10 +10,24 @@ from matplotlib import colors
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from scipy.interpolate import griddata
-from matplotlib import cm
 from tqdm import tqdm
+import matplotlib.colors as mcolors
+
+default_color_list = ['white', 'red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink', 
+                      'cornflowerblue', 'seagreen', 'deepskyblue', 
+                      'olivedrab', 'mediumvioletred', 'mediumseagreen', 'darkslateblue', 
+                      'orangered', 'royalblue', 'forestgreen', 'mediumorchid', 'cadetblue', 
+                      'indianred', 'dodgerblue', 'limegreen', 'mediumblue', 'tomato', 'mediumspringgreen']
+
+default_color_list_no_white = ['black', 'red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink', 
+                      'cornflowerblue', 'seagreen', 'deepskyblue', 
+                      'olivedrab', 'mediumvioletred', 'mediumseagreen', 'darkslateblue', 
+                      'orangered', 'royalblue', 'forestgreen', 'mediumorchid', 'cadetblue', 
+                      'indianred', 'dodgerblue', 'limegreen', 'mediumblue', 'tomato', 'mediumspringgreen']
+
+line_format_list = ['b-', 'r-', 'g-', 'y-', 'k-', 'm-']
+
+show_debug_messages = False
 
 
 
@@ -106,7 +120,7 @@ def add_presidential_election_results_to_nodes(G, filename):
                     else:
                         G.nodes[county_name]['OTHER_VOTES'] += int(row[4].replace(',', ''))
 
-def successor_states(G):
+def successor_states(G, num_moves_ahead_to_check=1):
     """
     This function is an improved version of the successor_states function.
     It should work for any number of districts.
@@ -127,6 +141,11 @@ def successor_states(G):
                 if district_is_contiguous(G, old_district): 
                     successors.append(G.copy()) 
                 G.nodes[neighbor]['district'] = old_district 
+
+    if num_moves_ahead_to_check > 1:
+        # for now, a simple recursive call to the function will suffice, but we may want to improve this later
+        successors.extend(successor_states(G, num_moves_ahead_to_check - 1))
+    
     return successors
 
 def assign_2023_redistricting_plan(G):
@@ -151,7 +170,7 @@ def assign_2023_redistricting_plan(G):
 """
 Restriction functions:
 """
-def is_population_difference_within_threshold(G, threshold=14844):
+def is_population_difference_within_threshold(G, threshold=14_844):
     """
     This function takes in a graph with assigned districts and returns True if the population difference between the largest and smallest districts is less than or equal to the threshold, and False otherwise.
     Such a function can be used to force search algorithms to only consider states where the population difference between the largest and smallest districts is less than or equal to the threshold.
@@ -323,7 +342,7 @@ def population_of_district(G, district_num):
             population += G.nodes[node]['population']
     return population
 
-def print_district_partisan_leans(G, colors=['white', 'red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink']):
+def print_district_partisan_leans(G, colors=default_color_list):
     """
     Prints the partisan leans of each district.
     """
@@ -569,7 +588,8 @@ def truly_random_districting(G_to_edit, num_districts=4):
     # check for contiguousness
     for district in range(1, num_districts + 1):
             if district > 1:
-                print(district)
+                if show_debug_messages:
+                    print(district)
             if not district_is_contiguous(G_to_edit, district):
                 districs_contiguous = False
                 break
@@ -591,11 +611,13 @@ def truly_random_districting(G_to_edit, num_districts=4):
         districs_contiguous = True
         for district in range(1, num_districts + 1):
             if district > 1:
-                print(district)
+                if show_debug_messages:
+                    print(district)
             if not district_is_contiguous(G_to_edit, district):
                 districs_contiguous = False
                 break
         maps_checked += 1
+
 
 
 """
@@ -608,13 +630,14 @@ def draw_graph(G, names=True):
 
     # Draw the graph
     pos = nx.get_node_attributes(G, 'pos')
-    labels = nx.get_node_attributes(G, 'name')
-    nx.draw(G, pos=pos, with_labels=names, labels=labels, font_size=8, node_size=2, edge_color='gray', alpha=0.5)
+    #labels = nx.get_node_attributes(G, 'name')
+    colors = [i for i in random.choices(default_color_list_no_white, k=len(G.edges))]
+    nx.draw(G, pos=pos, with_labels=None, labels=None, font_size=8, node_size=0, edge_color=colors, alpha=1, width=3, node_color=None)
 
     # Show the plot
     plt.show()
 
-def color_county_map(G, colors=['white', 'red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink']):
+def color_county_map(G, colors=default_color_list):
     """
     This function takes a graph with assigned districts and displays a map of Iowa with the districts colored in.
     """
@@ -636,7 +659,7 @@ def color_county_map(G, colors=['white', 'red', 'blue', 'green', 'yellow', 'oran
     plt.axis('off')
     plt.show()
 
-def animated_random_districts(G, num_districts=4, frames=100, interval=100, colors=['white', 'red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink'], random_function=randomized_node_growth):
+def animated_random_districts(G, num_districts=4, frames=100, interval=100, colors=default_color_list, random_function=randomized_node_growth):
     """
     This function is used to visualize the a random function.
     In each frame, the districts are randomly generated again, and the map is updated to show the new districts.
@@ -681,7 +704,7 @@ def animated_random_districts(G, num_districts=4, frames=100, interval=100, colo
     plt.axis('off')
     plt.show()
 
-def animate_successor_states(G, interval=100, colors=['white', 'red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink']):
+def animate_successor_states(G, interval=100, colors=default_color_list):
     """
     This function takes in a graph and a list of colors and showcases the graph's successor states using an animation.
     This can be used to visualize the correctness of the successor_states function.
@@ -726,7 +749,7 @@ def animate_successor_states(G, interval=100, colors=['white', 'red', 'blue', 'g
     plt.axis('off')
     plt.show()
 
-def animate_from_steps(steps, interval=100, colors=['white', 'red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink']):
+def animate_from_steps(steps, interval=100, colors=default_color_list):
     """
     Creates an animation from a list of steps, displaying the map with the districts colored in the given colors
     """
@@ -870,7 +893,8 @@ def random_districting_no_breaking_contiguousness(G_to_edit, num_districts=4):
         while bad_districts.get(unassigned[node_num]) != None and len(bad_districts[unassigned[node_num]]) == num_districts:
             bad_nodes.append(unassigned[node_num]) # FOR TESTING
             if len(bad_nodes) >= len(unassigned): # FOR TESTING
-                print("All nodes break contiguousness for all districts. Regenerating graph.") # FOR TESTING
+                if show_debug_messages:
+                    print("All nodes break contiguousness for all districts. Regenerating graph.") # FOR TESTING
                 G_to_edit = vanilla_G.copy() # FOR TESTING
                 bad_nodes = [] # FOR TESTING
                 bad_districts = {} # FOR TESTING
@@ -901,7 +925,39 @@ def random_districting_no_breaking_contiguousness(G_to_edit, num_districts=4):
 
     return G_to_edit
 
-def visualize_state_space(function_for_x_axis, function_for_y_axis, function_for_z_axis, function_for_intensity, random_districting_algorithm=randomized_node_growth_considering_population, title="Graph Title", x_axis_label="X Axis", y_axis_label="Y Axis", z_axis_label="Z Axis", num_districts=4, num_generations=10000):
+def visualize_state_space_using_3d_scatter(function_for_x_axis, function_for_y_axis, function_for_z_axis, function_for_intensity, random_districting_algorithm=randomized_node_growth_considering_population, title="Graph Title", x_axis_label="X Axis", y_axis_label="Y Axis", z_axis_label="Z Axis", num_districts=4, num_generations=10000):
+    """
+    For search problems, it is sometimes useful to visualize the state space.
+    This can help us understand the problem better, and understand why certain algorithms may work better than others.
+    Visualizing the state space of a political districting problem is incredibly difficult.
+    This is because the state space is so large, and it is difficult to visualize more than 3 dimensions.
+    According to John Hessler of John Hopkins University the geometry of the state space of a political districting problem is unknown:
+    https://youtu.be/l3iexp_pVxc?t=1266
+    As far as I can tell, finding a useful way to understand it or visualize it is somewhat of an open problem.
+
+    One solution I have provided here attempts to show the state space by finding the values of four functions for each districting,
+    and plotting the values of these functions on a 3D scatter plot, with the fourth function being represented by the color of the point.
+
+    Originally I had planned to plot it as a 3D surface, but since values of the functions may be repeated, this would not work.
+
+    In general, from the results I have gotten thus far, it seems that the state space is incredibly bumpy by measure of population.
+    The sheer amount of local minima when attempting to minimize population difference is astounding, and makes navigating the state space very difficult.
+
+    function_for_x_axis: a function that takes in a graph and returns a value which will be represented by the x axis in the scatter plot
+    function_for_y_axis: a function that takes in a graph and returns a value which will be represented by the y axis in the scatter plot
+    function_for_z_axis: a function that takes in a graph and returns a value which will be represented by the z axis in the scatter plot
+    function_for_intensity: a function that takes in a graph and returns a value which will be represented by the color of the point in the scatter plot
+    random_districting_algorithm: a function that takes in a graph and returns a graph with a random districting
+                                    I found that randomized_node_growth_considering_population helps to nudge results toward graphs that would actually be legal 
+                                    (i.e. contiguous and containing districts with similar populations)
+                                    We typically want to only compare districtings to other legal potential maps, so this is why it is the default value
+    title: the title of the graph
+    x_axis_label: the label for the x axis
+    y_axis_label: the label for the y axis
+    z_axis_label: the label for the z axis
+    num_districts: the number of districts to use in the random districting algorithm
+    num_generations: the number of random districtings to generate and plot
+    """
     G = build_graph()
     x_values = []
     y_values = []
@@ -952,6 +1008,64 @@ def visualize_state_space(function_for_x_axis, function_for_y_axis, function_for
     #fig.colorbar(surf, shrink=0.5, aspect=5)
 
     # Display plot
+    plt.show()
+
+def visualize_state_space_with_random_walk(start_graph, function_1, function_1_name, function_2=None, function_2_name=None, num_steps=100):
+    """
+    Creates a line graph with the x axis representing the step taken during a random walk,
+    and the y axis representing the value of the function at that step.
+    Can help to visualize the state space for a given heuristic function.
+
+    start_graph: a graph to start the random walk from
+    TODO
+    """
+    y_1 = []
+    y_2 = []
+
+    # Add the initial values of the functions to the graph
+    y_1.append(function_1(start_graph))
+    if function_2 is not None:
+        y_2.append(function_2(start_graph))
+
+    for step in range(num_steps):
+        successor_states_to_choose_from = successor_states(start_graph)
+        start_graph = random.choice(successor_states_to_choose_from)
+        y_1.append(function_1(start_graph))
+        if function_2 is not None:
+            y_2.append(function_2(start_graph))
+
+    steps = [i for i in range(num_steps + 1)]
+
+    # Create a new figure and axis
+    fig, ax = plt.subplots()
+
+    # Plot the first line on the left y-axis
+    ax.plot(steps, y_1, color='blue', label=function_1_name)
+    ax.set_ylabel(function_1_name, color='blue')
+    ax.tick_params(axis='y', labelcolor='blue')
+
+    # Create a second y-axis on the right side of the plot
+    ax2 = ax.twinx()
+
+    if function_2 is not None:
+        # Plot the second line on the right y-axis
+        ax2.plot(steps, y_2, color='red', label=function_2_name)
+        ax2.set_ylabel(function_2_name, color='red')
+        ax2.tick_params(axis='y', labelcolor='red')
+
+    # Add a legend for both lines
+    lines1, labels1 = ax.get_legend_handles_labels()
+    if function_2 is not None:
+        lines2, labels2 = ax2.get_legend_handles_labels()
+    else:
+        lines2, labels2 = [], []
+    ax2.legend(lines1 + lines2, labels1 + labels2, loc='best')
+
+    # Add x-label and title
+    ax.set_xlabel('Steps')
+    ax.set_title('Heuristic Values During Random Walk')
+
+    # Display the plot
     plt.show()
 
 
@@ -1236,80 +1350,58 @@ def total_number_democrat_districts(G):
     
     return num_dem_districts
 
+def combined_heuristic_1(G):
+    """
+    Returns the maximum population difference times the largest perimeter.
+
+    Experimentally, this was our best heuristic for using steepest ascent hill climbing.
+    It was also our best heuristic for using weighted stocchastic hill climbing
+    """
+    return max_population_difference(G) + 20_000 * largest_perimeter(G)
+
+def combined_heuristic_2(G):
+    """
+    Returns the maximum population difference times the largest perimeter.
+
+    Experimentally, this was our best heuristic for using stochastic hill climbing, it seems to need a bit more of a push from the perimeter.
+    """
+    return max_population_difference(G) + 36_000 * largest_perimeter(G)
+
+def combined_heuristic_3(G):
+    """
+    Returns the maximum population difference times the largest perimeter.
+
+    Experimentally, this was our best heuristic for using stochastic hill climbing, it seems to need a bit more of a push from the perimeter.
+    """
+    return max_population_difference(G) + 5_000 * largest_perimeter(G)
 
 
 
 """
 Local search algorithms:
 """
-def old_hill_climbing_search(start_graph, max_steps=100, function_to_optimize=max_population_difference, minimize=True, return_steps_taken=False, already_visited={}):
+def hill_climbing_search(start_graph, max_steps=100, max_plateau_steps=150, max_states_memorize=100, steps_ahead_to_look=1, function_to_optimize=max_population_difference, minimize=True, return_steps_taken=False):
     """
-    Performs standard hill climbing search, finding a minimal value for the function_to_optimize. 
+    Performs steepest ascent hill climbing search, finding a minimal value for the function_to_optimize. 
     If minimize is False, then finds a maximal value. Does not consider states in already_visited
 
     start_graph: the graph to start the search from. Existing districts must be already present.
     max_steps: the maximum number of steps to take
-    funciton_to_optimize: the function to optimize
-    minimize: whether to minimize or maximize the function
-    return_steps_taken: whether to return the steps taken (these can be used to animate the search later)
-    already_visited: a dictionary of states that have already been visited (this is used to avoid duplicate states)
-    """
-
-    G = start_graph.copy()
-    steps_taken = [G]
-    for i in range(max_steps):
-        successors = successor_states(G)
-        if len(successors) == 0:
-            return G
-        
-        # find best successor
-        best_successor = successors[0]
-        best_score = function_to_optimize(best_successor)
-        for successor in successors:
-            if already_visited.get(successor) == None:
-                test_score = function_to_optimize(successor)
-                if minimize and test_score < best_score:
-                    best_successor = successor
-                    best_score = test_score
-                elif not minimize and test_score > best_score:
-                    best_successor = successor
-                    best_score = test_score
-                already_visited[successor] = True
-            else:
-                print("avoided duplicate state!")
-
-        # check if best successor is better than current state
-        if minimize and best_score < function_to_optimize(G):
-            G = best_successor
-            steps_taken.append(G)
-        elif not minimize and best_score > function_to_optimize(G):
-            G = best_successor
-            steps_taken.append(G)
-        else: # no better successor found, we are at the apex of the hill
-            if return_steps_taken:
-                return G, steps_taken
-            return G
-
-    if return_steps_taken:
-        return G, steps_taken
-    return G
-
-def hill_climbing_search(start_graph, max_steps=100, function_to_optimize=max_population_difference, minimize=True, return_steps_taken=False):
-    """
-    Performs standard hill climbing search, finding a minimal value for the function_to_optimize. 
-    If minimize is False, then finds a maximal value. Does not consider states in already_visited
-
-    start_graph: the graph to start the search from. Existing districts must be already present.
-    max_steps: the maximum number of steps to take
+    max_plateau_steps: the maximum number of steps to take when the function is not improving
+    max_states_memorize: the maximum number of states to remember (to avoid cycles on plateaus)
     function_to_optimize: the function to optimize
     minimize: whether to minimize or maximize the function
     return_steps_taken: whether to return the steps taken (these can be used to animate the search later)
+    #TODO: allow looking ahead more than one step in a better way
     """
 
+
     G = start_graph.copy()
+    memorized_steps = []
+    number_plateau_steps_in_a_row = 0
     steps_taken = [G]
-    for i in range(max_steps):
-        successors = successor_states(G)
+    for i in tqdm(range(max_steps)):
+        successors = successor_states(G, num_moves_ahead_to_check=steps_ahead_to_look)
         if len(successors) == 0:
             return G
         
@@ -1329,67 +1421,64 @@ def hill_climbing_search(start_graph, max_steps=100, function_to_optimize=max_po
         if minimize and best_score < function_to_optimize(G):
             G = best_successor
             steps_taken.append(G)
+
+            # we were not at a plateau before, so reset the plateau counter
+            memorized_steps = []
+            number_plateau_steps_in_a_row = 0
         elif not minimize and best_score > function_to_optimize(G):
             G = best_successor
             steps_taken.append(G)
-        else: # no better successor found, we are at the apex of the hill
-            if return_steps_taken:
-                return G, steps_taken
-            return G
 
+            # we were not at a plateau before, so reset the plateau counter
+            memorized_steps = []
+            number_plateau_steps_in_a_row = 0
+        else: # no better successor found, we are either at a local maximum or a plateau/shoulder
+            if best_score == function_to_optimize(G): # we are at a plateau/shoulder
+                # get a list of all successors with the same score that aren't in memorized_steps
+                plateau_successors = []
+                non_memorized_plateau_successors = []
+                for successor in successors:
+                    if function_to_optimize(successor) == best_score:
+                        plateau_successors.append(successor)
+                        if successor not in memorized_steps:
+                            non_memorized_plateau_successors.append(successor)
+                
+                # if there are no successors that aren't in memorized_steps, just take a random plateau successor
+                if len(non_memorized_plateau_successors) == 0:
+                    G = random.choice(plateau_successors)
+                    steps_taken.append(G)
+                else: # otherwise, take a random successor that isn't in memorized_steps
+                    G = random.choice(non_memorized_plateau_successors)
+                    steps_taken.append(G)
+                number_plateau_steps_in_a_row += 1
+
+                if number_plateau_steps_in_a_row >= max_plateau_steps:
+                    # we have been at a plateau for too long, so we should end the search
+                    if show_debug_messages:
+                        print("Warning: hill climbing search reached max plateau steps") # This is to alert the user that they may need to adjust the max_plateau_steps parameter
+                    if return_steps_taken:
+                        return G, steps_taken
+                    return G
+
+                if len(memorized_steps) >= max_states_memorize: #remember this step (steps only need memorized in case of plateau)
+                    memorized_steps.pop(0)
+                    if show_debug_messages:
+                        print("Warning: hill climbing search reached max states to memorize") # This is to alert the user that they may need to adjust the max_states_memorize parameter
+                memorized_steps.append(G)
+            else: # we are at a local maximum
+                if return_steps_taken:
+                    return G, steps_taken
+                return G
+
+    if show_debug_messages:
+        print("Warning: hill climbing search reached max steps") # This is to alert the user that they may need to adjust the max_steps parameter
     if return_steps_taken:
         return G, steps_taken
     return G
 
-def old_random_restart_hill_climbing(graph, num_restarts=100, max_steps_per_climb=1000, function_to_optimize=max_population_difference, minimize=True, return_steps_taken=False, districts=4, random_districting_algorithm=randomized_node_growth):
+def random_restart_hill_climbing(graph, num_restarts=100, max_steps_per_climb=1000, steps_ahead_to_look=1, function_to_optimize=max_population_difference, minimize=True, return_steps_taken=False, districts=4, random_districting_algorithm=randomized_node_growth):
     """
-    Performs random restart hill climbing search, finding a minimal value for the function_to_optimize.
-    If minimize is False, then finds a maximal value.
-
-    graph: the graph to perform the search on
-    num_restarts: the number of times to restart the search
-    max_steps_per_climb: the maximum number of steps to take in each hill climbing search
-    function_to_optimize: the function to optimize
-    minimize: whether to minimize or maximize the function
-    return_steps_taken: whether to return the steps taken (these can be used to animate the search later)
-    districts: the number of districts to use
-    random_districting_algorithm: the algorithm to use to generate a random districting before performing each search
-    """
-    if minimize:
-        best_score = math.inf
-    else:
-        best_score = -math.inf
-    best_graph = None
-    steps_taken = []
-    already_visited = {}
-    print('progress: 0%')
-    for i in range(num_restarts):
-        if return_steps_taken:
-            graph = random_districting_algorithm(graph, districts) # put the graph into a random state before performing the search
-            contender, contender_steps_taken = hill_climbing_search(graph, max_steps=max_steps_per_climb, function_to_optimize=function_to_optimize, minimize=minimize, return_steps_taken=return_steps_taken, already_visited=already_visited)
-            steps_taken.extend(contender_steps_taken)
-        else:
-            graph = random_districting_algorithm(graph, districts) # put the graph into a random state before performing the search
-            contender = hill_climbing_search(graph, max_steps=max_steps_per_climb, function_to_optimize=function_to_optimize, minimize=minimize, return_steps_taken=return_steps_taken, already_visited=already_visited)
-        contender_score = function_to_optimize(contender)
-        if minimize and contender_score < best_score:
-            best_score = contender_score
-            best_graph = contender
-        elif not minimize and contender_score > best_score:
-            best_score = contender_score
-            best_graph = contender
-        os.system('cls' if os.name=='nt' else 'clear')
-        print('progress: ', int((i+1)/num_restarts*100), '%', sep='')
-
-    print('total maps drawn: ' + str(len(list(already_visited.keys()))))
-
-    if return_steps_taken:
-        return best_graph, steps_taken
-    return best_graph
-
-def random_restart_hill_climbing(graph, num_restarts=100, max_steps_per_climb=1000, function_to_optimize=max_population_difference, minimize=True, return_steps_taken=False, districts=4, random_districting_algorithm=randomized_node_growth):
-    """
-    Performs random restart hill climbing search, finding a minimal value for the function_to_optimize.
+    Performs random restart steepest ascent hill climbing search, finding a minimal value for the function_to_optimize.
     If minimize is False, then finds a maximal value.
 
     graph: the graph to perform the search on
@@ -1411,7 +1500,7 @@ def random_restart_hill_climbing(graph, num_restarts=100, max_steps_per_climb=10
     print('progress: 0%')
     for i in range(num_restarts):
         graph = random_districting_algorithm(graph, districts) # put the graph into a random state before performing the search
-        contender, contender_steps_taken = hill_climbing_search(graph, max_steps=max_steps_per_climb, function_to_optimize=function_to_optimize, minimize=minimize, return_steps_taken=True)
+        contender, contender_steps_taken = hill_climbing_search(graph, max_steps=max_steps_per_climb, steps_ahead_to_look=steps_ahead_to_look, function_to_optimize=function_to_optimize, minimize=minimize, return_steps_taken=True)
         num_steps_taken += len(contender_steps_taken)
         if return_steps_taken:
             steps_taken.extend(contender_steps_taken)
@@ -1425,18 +1514,234 @@ def random_restart_hill_climbing(graph, num_restarts=100, max_steps_per_climb=10
         os.system('cls' if os.name=='nt' else 'clear')
         print('progress: ', int((i+1)/num_restarts*100), '%', sep='')
 
-    print('total maps drawn: ' + str(num_steps_taken))
+    if show_debug_messages:
+        print('total maps drawn: ' + str(num_steps_taken))
 
     if return_steps_taken:
         return best_graph, steps_taken
     return best_graph
+
+def random_walk(graph, function_to_optimize=max_population_difference, num_steps=1000, minimize=True, return_steps_taken=False):
+    """
+    function definition, notes, documentation
+    """
+    best_value = function_to_optimize(graph)
+    best_graph = graph.copy()
+    if return_steps_taken:
+        steps_taken = [graph.copy()]
+    for i in tqdm(range(num_steps)):
+        states = successor_states(graph)
+        graph = random.choice(states)
+        if minimize and function_to_optimize(graph) < best_value:
+            best_value = function_to_optimize(graph)
+            best_graph = graph.copy()
+        elif not minimize and function_to_optimize(graph) > best_value:
+            best_value = function_to_optimize(graph)
+            best_graph = graph.copy()
+        if return_steps_taken:
+            steps_taken.append(graph.copy())
+
+    if return_steps_taken:
+        return best_graph, steps_taken
+    return best_graph
+
+def stochastic_hill_climbing(graph, function_to_optimize, max_steps_no_improvement=1000, minimize=True, step_size=2):
+    """
+    Stochastic hill climbing chooses a random state from the successors of the current state that are better than the current state.
+
+    graph: the starting graph to perform the search on
+    function_to_optimize: the function to optimize
+    max_steps_no_improvement: the maximum number of steps to take in a row without improving before ending the search (allows navigation of plateaus)
+    minimize: whether to minimize or maximize the function
+    step_size: the number of steps to look ahead when choosing the next state, it seems to result in poor performance when set to values larger than 2
+    """
+    graph = graph.copy()
+    steps_no_improvement = 0
+    while steps_no_improvement < max_steps_no_improvement:
+        states = successor_states(graph, num_moves_ahead_to_check=step_size)
+
+        improved_states = []
+        for state in states:
+            if minimize and function_to_optimize(state) <= function_to_optimize(graph):
+                improved_states.append(state)
+            elif not minimize and function_to_optimize(state) >= function_to_optimize(graph):
+                improved_states.append(state)
+        
+        if len(improved_states) == 0:
+            # we are at a local maximum/minimum
+            return graph
+        
+        # choose from the better states at random
+        graph = random.choice(improved_states)
+        
+        if minimize and function_to_optimize(graph) < function_to_optimize(graph):
+            steps_no_improvement = 0
+        elif not minimize and function_to_optimize(graph) > function_to_optimize(graph):
+            steps_no_improvement = 0
+        else:
+            # we didn't improve, we're on a plateau
+            steps_no_improvement += 1
+    
+    # we've reached the maximum number of steps without improving
+    return graph
+
+def first_choice_hill_climbing(graph, function_to_optimize, max_steps_no_improvement=1000, minimize=True, step_size=500):
+    """
+    First choice hill climbing chooses the first state from the successors which is better than the current state.
+    This function is nice and fast, but it performs very poorly for our purposes. Random walk often outperforms it.
+    It seems to get stuck in local maxima/minima very easily, even when looking an incredible number of steps ahead.
+
+    graph: the starting graph to perform the search on
+    function_to_optimize: the function to optimize
+    max_steps_no_improvement: the maximum number of steps to take in a row without improving before ending the search (allows navigation of plateaus)
+    minimize: whether to minimize or maximize the function
+    step_size: the number of steps to look ahead when choosing the next state, it seems to result in poor performance when set to values larger than 2
+    """
+    graph = graph.copy()
+    steps_no_improvement = 0
+    while steps_no_improvement < max_steps_no_improvement:
+        states = successor_states(graph, num_moves_ahead_to_check=step_size)
+
+        for state in states:
+            if minimize and function_to_optimize(state) < function_to_optimize(graph):
+                graph = state
+                steps_no_improvement = 0
+                continue # we found our first better state, so we can move on to the next iteration
+            elif not minimize and function_to_optimize(state) > function_to_optimize(graph):
+                graph = state
+                steps_no_improvement = 0
+                continue # we found our first better state, so we can move on to the next iteration
+
+        # there is no explicitly better state, but there may be a state that is equal to the current state
+        for state in states:
+            if function_to_optimize(state) == function_to_optimize(graph):
+                graph = state
+                steps_no_improvement += 1
+                continue
+
+        print('reached local maximum')
+        # there aren't any better states or states equal to the current state, so we are at a local maximum/minimum
+        return graph
+    
+    print('reached max steps')
+    # we've reached the maximum number of steps without improving
+    return graph
+
+def weighted_stochastic_hill_climbing(graph, function_to_optimize, max_steps_no_improvement=1000, minimize=True, step_size=2):
+    """
+    Stochastic hill climbing chooses a random state from the successors of the current state that are better than the current state. 
+    This version is more likely to choose successors that on a steeper ascent.
+
+    graph: the starting graph to perform the search on
+    function_to_optimize: the function to optimize
+    max_steps_no_improvement: the maximum number of steps to take in a row without improving before ending the search (allows navigation of plateaus)
+    minimize: whether to minimize or maximize the function
+    step_size: the number of steps to look ahead when choosing the next state, it seems to result in poor performance when set to values larger than 2
+    """
+    graph = graph.copy()
+    steps_no_improvement = 0
+    while steps_no_improvement < max_steps_no_improvement:
+        states = successor_states(graph, num_moves_ahead_to_check=step_size)
+
+        improved_states = []
+        total_score = 0
+        for state in states:
+            successor_score = function_to_optimize(state)
+            if minimize and successor_score <= function_to_optimize(graph):
+                improved_states.append(state)
+            elif not minimize and successor_score >= function_to_optimize(graph):
+                improved_states.append(state)
+            total_score += successor_score
+        
+        if len(improved_states) == 0:
+            # we are at a local maximum/minimum
+            return graph
+        
+        # weigh each score by its relative value to the total score
+        relative_weights = []
+        if minimize: # we want to minimize the function, so we want to choose the states with the lowest scores
+            for state in improved_states:
+                relative_weights.append(1 - (function_to_optimize(state) / total_score))
+        else: # we want to maximize the function, so we want to choose the states with the highest scores
+            for state in improved_states:
+                relative_weights.append(function_to_optimize(state) / total_score)
+
+        
+        # choose from the better states at random, weighing the states with better scores more heavily
+        graph = random.choices(improved_states, weights=relative_weights, k=1)[0]
+        
+        if minimize and function_to_optimize(graph) < function_to_optimize(graph):
+            steps_no_improvement = 0
+        elif not minimize and function_to_optimize(graph) > function_to_optimize(graph):
+            steps_no_improvement = 0
+        else:
+            # we didn't improve, we're on a plateau
+            steps_no_improvement += 1
+
+def simulated_annealing(graph, function_to_optimize, schedule, minimize=True, step_size=1, max_steps=1000):
+    """
+    Performs simulated annealing on the given graph, finding a minimal value for the function_to_optimize.
+    If minimize is False, then finds a maximal value.
+
+    graph: the graph to perform the search on
+    function_to_optimize: the function to optimize
+    minimize: whether to minimize or maximize the function
+    """
+    graph = graph.copy()
+    for step in tqdm(range(max_steps)):
+        temperature = schedule(step)
+
+        if temperature == 0: # exit condition
+            return graph
+        
+        successors = successor_states(graph, num_moves_ahead_to_check=step_size)
+        successor = random.choice(successors)
+        successor_score = function_to_optimize(successor)
+        if successor_score < function_to_optimize(graph) and minimize:
+            graph = successor
+        elif successor_score > function_to_optimize(graph) and not minimize:
+            graph = successor
+        else: #the successor is worse or equal to the current state. Accept it with probability e^(-delta/temperature)
+            if not minimize:
+                neg_delta = function_to_optimize(successor) - function_to_optimize(graph)
+            else:
+                neg_delta = function_to_optimize(graph) - function_to_optimize(successor)
+            try:
+                probability = math.exp(neg_delta / temperature)
+            except OverflowError:
+                probability = 0
+            if random.random() < probability:
+                graph = successor
+        
+    return graph
+        
+
+
+"""
+Schedule functions for simulated annealing:
+"""
+def exponential_decay_schedule(time, initial_temperature=1000, decay_rate=0.99):
+    """
+    Returns the temperature for the given time using exponential decay
+
+    time: the current time
+    initial_temperature: the initial temperature
+    decay_rate: the rate at which the temperature decays
+    """
+    return initial_temperature * (decay_rate ** time)
+
+def simple_schedule(time, initial_temperature=10_000):
+    """
+    Returns the temperature for the given time, where the temperature is initial_temperature / (1 + time)
+    """
+    return initial_temperature / (1 + time)
 
 
 
 """
 Map grading functions:
 """
-def grade_districting(evaluation_function, graph, restriction_function=None, num_simulations=100, goal_to_maximize_eval=True):
+def grade_specific_factor(evaluation_function, graph, restriction_function=None, num_simulations=100, goal_to_maximize_eval=True):
     """
     Grades a districted graph using the evaluation function
 
@@ -1458,25 +1763,39 @@ def grade_districting(evaluation_function, graph, restriction_function=None, num
 
     this_evaluation = evaluation_function(graph)
     num_graphs_higher_than_this = 0
+    num_graphs_lower_than_this = 0
 
     # generate random maps with the same number of districts num_simulations times
     for i in tqdm(range(num_simulations)):
         G = graph.copy()
         good_graph = False
         while not good_graph:
-            randomized_node_growth_considering_population(G, num_districts=num_districts)
-            G = hill_climbing_search(G, funciton_to_optimize=max_population_difference, max_steps=1000, minimize=True, districts=num_districts) #TODO: remove?
-            good_graph = restriction_function(G)
+            G = randomized_node_growth(G)
+            G = hill_climbing_search(G, function_to_optimize=combined_heuristic_1, max_steps=1000, minimize=True)
+            if restriction_function == None:
+                good_graph = True
+            else:
+                good_graph = restriction_function(G)
         if evaluation_function(G) > this_evaluation:
             num_graphs_higher_than_this += 1
+        elif evaluation_function(G) < this_evaluation:
+            num_graphs_lower_than_this += 1
+        
 
     # print the results
     if goal_to_maximize_eval:
-        print('grade: ' + str((1 - num_graphs_higher_than_this/num_simulations) * 100) + '%')
+        return (1 - float(num_graphs_higher_than_this)/num_simulations) * 100
     else:
-        print('grade: ' + str((num_graphs_higher_than_this/num_simulations) * 100) + '%')
+        return (1 - float(num_graphs_lower_than_this)/num_simulations) * 100
             
-    
+def grade_districting(graph, num_simulations_per_grade):
+    print("In terms of compactness, this districting is better than " + 
+          str(grade_specific_factor(largest_perimeter, graph, num_simulations=num_simulations_per_grade, goal_to_maximize_eval=False)) + 
+          "% of random districtings.")
+    print("In terms of population difference, this districting is better than " + 
+          str(grade_specific_factor(max_population_difference, graph, num_simulations=num_simulations_per_grade, goal_to_maximize_eval=False)) +
+            "% of random districtings.")
+
 
 
 if __name__ == '__main__':
@@ -1487,14 +1806,18 @@ if __name__ == '__main__':
     #assign_2023_redistricting_plan(G)
 
     #animated_random_districts(G, num_districts=7, frames=100, interval=100, random_function=randomized_node_growth_considering_population)
-    #randomized_node_growth(G, num_districts=4)
-    G = random_restart_hill_climbing(G, return_steps_taken=False, num_restarts=500, function_to_optimize=max_population_difference, minimize=True, districts=4, random_districting_algorithm=pseudo_random_node_growth_equal_population_districts)
+    randomized_node_growth(G, num_districts=4)
+    G = simulated_annealing(G, function_to_optimize=combined_heuristic_3, schedule=simple_schedule, minimize=True, step_size=1)
+    #G, steps = random_restart_hill_climbing(G, return_steps_taken=True, num_restarts=10, function_to_optimize=combined_heuristic_3, minimize=True, districts=4, random_districting_algorithm=randomized_node_growth)
+    #G = hill_climbing_search(G, function_to_optimize=max_population_difference, max_steps=1000, minimize=True, steps_ahead_to_look=10)
+    #G, steps = random_walk(G, function_to_optimize=combined_heuristic_3, num_steps=1000, minimize=True, return_steps_taken=True)
     print('Largest population difference for final map: ' + str(max_population_difference(G)))
     print('Largest perimeter for final map: ' + str(largest_perimeter(G)))
-    print_district_partisan_leans(G)
-    #animate_from_steps(steps_taken, interval=300)
-    color_county_map_with_partisan_leans(G)
-    #grade_districting(gerrymander_for_democrats, G, restriction_function=is_population_difference_within_threshold, num_simulations=10, goal_to_maximize_eval=True)
+    #print_district_partisan_leans(G)
+    #animate_from_steps(steps, interval=100)
+    color_county_map(G)
+    #grade_districting(G, num_simulations_per_grade=1000)
+    #visualize_state_space_with_random_walk(G, function_1=largest_perimeter, function_1_name="Largest Perimeter", function_2=max_population_difference, function_2_name="Max Population Difference")
 
 
 """
@@ -1512,11 +1835,10 @@ A fun note on graph hashing:
 # TODO: clustering algorithm for random contiguous maps OR a different, more uniform random algorithm
 
 # TODO: improve heuristics for gerrymandering
-# TODO: visualize state space
+# TODO: find a way to better visualize the state space
 # TODO: optimize performance, memory usage. Determine the bottleneck.
 
 # TODO: Local search algorithms to implement:
-# TODO: implement geographic local search
 # TODO: implement simulated annealing
 # TODO: implement local beam search
 # TODO: implement tabu search
