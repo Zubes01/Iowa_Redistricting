@@ -54,6 +54,7 @@ def build_graph(filename='IA-19-iowa-counties.json'):
         G.add_node(row['NAME'], geometry=row.geometry, pos=(row.geometry.centroid.x, row.geometry.centroid.y), name=row['NAME'])
         idx_to_county[idx] = row['NAME']
         G.nodes[row['NAME']]['area'] = row.geometry.area
+        G.nodes[row['NAME']]['perimeter'] = row.geometry.length
 
     # Create edges between neighboring polygons
     for idx1, row1 in gdf.iterrows():
@@ -1146,6 +1147,134 @@ def largest_perimeter(G):
                 perimeters[G.nodes[node]['district']] += G.nodes[node][neighbor]
     return max(perimeters.values())
 
+def largest_perimeter_v2(G):
+    """
+    Computes the largest perimeter of a district, including the border on the outside of the state.
+
+    This function can be used to optimize for compactness of districts.
+    """
+
+    total_perimeters = {}
+    internal_borders = {}
+    for node in G.nodes:
+        if G.nodes[node]['district'] not in total_perimeters:
+            total_perimeters[G.nodes[node]['district']] = 0
+        total_perimeters[G.nodes[node]['district']] += G.nodes[node]['perimeter']
+        for neighbor in list(G.neighbors(node)):
+            if G.nodes[node]['district'] == G.nodes[neighbor]['district']:
+                if G.nodes[node]['district'] not in internal_borders:
+                    internal_borders[G.nodes[node]['district']] = 0
+                internal_borders[G.nodes[node]['district']] += G.nodes[node][neighbor] / 2.0 # divide by 2 because each internal border is counted twice
+            else:
+                total_perimeters[G.nodes[node]['district']] += G.nodes[node][neighbor]
+
+    only_external_perimeters = {}
+    for district in total_perimeters:
+        only_external_perimeters[district] = total_perimeters[district] - internal_borders[district]
+    
+    return max(only_external_perimeters.values())
+
+def average_perimeter_v2(G):
+    """
+    Computes the average perimeter of all districts, including the border on the outside of the state.
+
+    This function can be used to optimize for compactness of districts.
+    """
+
+    total_perimeters = {}
+    internal_borders = {}
+    for node in G.nodes:
+        if G.nodes[node]['district'] not in total_perimeters:
+            total_perimeters[G.nodes[node]['district']] = 0
+        total_perimeters[G.nodes[node]['district']] += G.nodes[node]['perimeter']
+        for neighbor in list(G.neighbors(node)):
+            if G.nodes[node]['district'] == G.nodes[neighbor]['district']:
+                if G.nodes[node]['district'] not in internal_borders:
+                    internal_borders[G.nodes[node]['district']] = 0
+                internal_borders[G.nodes[node]['district']] += G.nodes[node][neighbor] / 2.0 # divide by 2 because each internal border is counted twice
+            else:
+                total_perimeters[G.nodes[node]['district']] += G.nodes[node][neighbor]
+
+    only_external_perimeters = {}
+    for district in total_perimeters:
+        only_external_perimeters[district] = total_perimeters[district] - internal_borders[district]
+    
+    return sum(only_external_perimeters.values()) / len(only_external_perimeters.values())
+
+def average_perimeter(G):
+    """
+    Computes the average perimeter of a district.
+
+    This function can be used to optimize for compactness of districts.
+    """
+
+    perimeters = {}
+    for node in G.nodes:
+        for neighbor in list(G.neighbors(node)):
+            if G.nodes[node]['district'] != G.nodes[neighbor]['district']:
+                if G.nodes[node]['district'] not in perimeters:
+                    perimeters[G.nodes[node]['district']] = 0
+                perimeters[G.nodes[node]['district']] += G.nodes[node][neighbor]
+    return sum(perimeters.values())/len(perimeters.values())
+
+def smallest_length_internal_borders(G):
+    """
+    Computes the smallest sum of all internal borders of a district.
+
+    This function can be used to optimize for compactness of districts.
+    """
+
+    borders = {}
+    for node in G.nodes:
+        for neighbor in list(G.neighbors(node)):
+            if G.nodes[node]['district'] == G.nodes[neighbor]['district']:
+                if G.nodes[node]['district'] not in borders:
+                    borders[G.nodes[node]['district']] = 0
+                borders[G.nodes[node]['district']] += G.nodes[node][neighbor]
+    return min(borders.values())
+
+def average_length_internal_borders(G):
+    """
+    Computes the average sum of all internal borders of a district.
+    """
+
+    borders = {}
+    for node in G.nodes:
+        for neighbor in list(G.neighbors(node)):
+            if G.nodes[node]['district'] == G.nodes[neighbor]['district']:
+                if G.nodes[node]['district'] not in borders:
+                    borders[G.nodes[node]['district']] = 0
+                borders[G.nodes[node]['district']] += G.nodes[node][neighbor]
+    return sum(borders.values()) / len(borders.values())
+
+def worst_isthmus_ratio(G):
+    """
+    Computes the largest isthmus ratio of a district.
+
+    This function can be used to optimize for compactness of districts.
+    """
+
+    # gets the total internal and external border lengths of each district
+    total_internal_border_length = {}
+    total_external_border_length = {}
+    for node in G.nodes:
+        for neighbor in list(G.neighbors(node)):
+            if G.nodes[node]['district'] == G.nodes[neighbor]['district']:
+                if G.nodes[node]['district'] not in total_internal_border_length:
+                    total_internal_border_length[G.nodes[node]['district']] = 0
+                total_internal_border_length[G.nodes[node]['district']] += G.nodes[node][neighbor]
+            else:
+                if G.nodes[node]['district'] not in total_external_border_length:
+                    total_external_border_length[G.nodes[node]['district']] = 0
+                total_external_border_length[G.nodes[node]['district']] += G.nodes[node][neighbor]
+    
+    # computes the isthmus ratio of each district
+    isthmus_ratios = {}
+    for district in total_internal_border_length:
+        isthmus_ratios[district] = total_external_border_length[district] / total_internal_border_length[district]
+
+    return max(isthmus_ratios.values())
+
 def largest_difference_in_area(G):
     """
     Computes the largest difference in area between any two districts.
@@ -1355,7 +1484,7 @@ def combined_heuristic_1(G):
     Returns the maximum population difference times the largest perimeter.
 
     Experimentally, this was our best heuristic for using steepest ascent hill climbing.
-    It was also our best heuristic for using weighted stocchastic hill climbing
+    It was also our best heuristic for using weighted stochastic hill climbing
     """
     return max_population_difference(G) + 20_000 * largest_perimeter(G)
 
@@ -1371,9 +1500,9 @@ def combined_heuristic_3(G):
     """
     Returns the maximum population difference times the largest perimeter.
 
-    Experimentally, this was our best heuristic for using stochastic hill climbing, it seems to need a bit more of a push from the perimeter.
+    Experimentally, this was our best heuristic for using simulated annealing, it seems to need less of a push from the perimeter.
     """
-    return max_population_difference(G) + 5_000 * largest_perimeter(G)
+    return max_population_difference(G) + 10_000 * largest_perimeter(G)
 
 
 
@@ -1678,7 +1807,10 @@ def weighted_stochastic_hill_climbing(graph, function_to_optimize, max_steps_no_
             # we didn't improve, we're on a plateau
             steps_no_improvement += 1
 
-def simulated_annealing(graph, function_to_optimize, schedule, minimize=True, step_size=1, max_steps=1000):
+    # we've reached the maximum number of steps without improving
+    return graph
+
+def simulated_annealing(graph, function_to_optimize, schedule, minimize=True, step_size=1):
     """
     Performs simulated annealing on the given graph, finding a minimal value for the function_to_optimize.
     If minimize is False, then finds a maximal value.
@@ -1688,12 +1820,8 @@ def simulated_annealing(graph, function_to_optimize, schedule, minimize=True, st
     minimize: whether to minimize or maximize the function
     """
     graph = graph.copy()
-    for step in tqdm(range(max_steps)):
-        temperature = schedule(step)
-
-        if temperature == 0: # exit condition
-            return graph
-        
+    for step in tqdm(range(len(schedule))):
+        temperature = schedule[step]
         successors = successor_states(graph, num_moves_ahead_to_check=step_size)
         successor = random.choice(successors)
         successor_score = function_to_optimize(successor)
@@ -1714,28 +1842,30 @@ def simulated_annealing(graph, function_to_optimize, schedule, minimize=True, st
                 graph = successor
         
     return graph
-        
 
 
 """
 Schedule functions for simulated annealing:
 """
-def exponential_decay_schedule(time, initial_temperature=1000, decay_rate=0.99):
+def create_linear_schedule(initial_temperature, final_temperature, num_steps):
     """
-    Returns the temperature for the given time using exponential decay
+    Creates a linear schedule that goes from the initial temperature to the final temperature in the given number of steps
+    """
+    schedule = []
+    step_size = (initial_temperature - final_temperature) / num_steps
+    for step in range(num_steps):
+        schedule.append(initial_temperature - (step * step_size))
+    return schedule
 
-    time: the current time
-    initial_temperature: the initial temperature
-    decay_rate: the rate at which the temperature decays
+def create_exponential_decay_schedule(initial_temperature, final_temperature, num_steps):
     """
-    return initial_temperature * (decay_rate ** time)
-
-def simple_schedule(time, initial_temperature=10_000):
+    Creates an exponential decay schedule that goes from the initial temperature to the final temperature in the given number of steps
     """
-    Returns the temperature for the given time, where the temperature is initial_temperature / (1 + time)
-    """
-    return initial_temperature / (1 + time)
-
+    schedule = []
+    decay_rate = (final_temperature / initial_temperature) ** (1 / num_steps)
+    for step in range(num_steps):
+        schedule.append(initial_temperature * (decay_rate ** step))
+    return schedule
 
 
 """
@@ -1807,7 +1937,9 @@ if __name__ == '__main__':
 
     #animated_random_districts(G, num_districts=7, frames=100, interval=100, random_function=randomized_node_growth_considering_population)
     randomized_node_growth(G, num_districts=4)
-    G = simulated_annealing(G, function_to_optimize=combined_heuristic_3, schedule=simple_schedule, minimize=True, step_size=1)
+    time_schedule = create_exponential_decay_schedule(10_000, 1, 1000)
+    G = simulated_annealing(G, function_to_optimize=combined_heuristic_3, schedule=time_schedule, minimize=True, step_size=1)
+    #G = weighted_stochastic_hill_climbing(G, function_to_optimize=combined_heuristic_1, minimize=True)
     #G, steps = random_restart_hill_climbing(G, return_steps_taken=True, num_restarts=10, function_to_optimize=combined_heuristic_3, minimize=True, districts=4, random_districting_algorithm=randomized_node_growth)
     #G = hill_climbing_search(G, function_to_optimize=max_population_difference, max_steps=1000, minimize=True, steps_ahead_to_look=10)
     #G, steps = random_walk(G, function_to_optimize=combined_heuristic_3, num_steps=1000, minimize=True, return_steps_taken=True)
@@ -1816,6 +1948,7 @@ if __name__ == '__main__':
     #print_district_partisan_leans(G)
     #animate_from_steps(steps, interval=100)
     color_county_map(G)
+    #color_county_map_with_partisan_leans(G)
     #grade_districting(G, num_simulations_per_grade=1000)
     #visualize_state_space_with_random_walk(G, function_1=largest_perimeter, function_1_name="Largest Perimeter", function_2=max_population_difference, function_2_name="Max Population Difference")
 
@@ -1839,7 +1972,6 @@ A fun note on graph hashing:
 # TODO: optimize performance, memory usage. Determine the bottleneck.
 
 # TODO: Local search algorithms to implement:
-# TODO: implement simulated annealing
 # TODO: implement local beam search
 # TODO: implement tabu search
 # TODO: implement a monte-carlo-like algorithm for finding the best map
